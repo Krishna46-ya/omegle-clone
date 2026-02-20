@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom"
 import type { socketMessage } from "../types/message";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { UserInterface } from "./UserInterface";
 
 export function Room() {
@@ -9,17 +9,35 @@ export function Room() {
 
         const ws = new WebSocket("ws://localhost:8080");
         const pc = new RTCPeerConnection();
+        let tracksReadyResolve: () => void;
+        const trackReady = new Promise<void>(res => {
+            tracksReadyResolve = res;
+        })
 
-        ws.onopen = () => {
-            pc.ontrack = (event) => {
-                event.streams[0].getTracks().forEach(track => {
-                    setRemoteStream(prev => {
-                        const newStream = new MediaStream(prev.getTracks());
-                        newStream.addTrack(track);
-                        return newStream
-                    })
-                })
 
+        pc.ontrack = (event) => {
+            setRemoteStream(prev => {
+                if (prev.getTracks().some(t => t.id === event.track.id)) {
+                    return prev;
+                }
+
+                const newStream = new MediaStream(prev.getTracks())
+                newStream.addTrack(event.track)
+                return newStream;
+            })
+        }
+
+        let roomId: null | string = null;
+        pc.onicecandidate = (event) => {
+            if (!roomId) return;
+            if (event.candidate) {
+                ws.send(JSON.stringify({
+                    type: "ice",
+                    data: {
+                        roomId: roomId,
+                        ice: event.candidate
+                    }
+                }))
             }
         }
 
@@ -31,26 +49,21 @@ export function Room() {
             stream.getTracks().forEach(track => {
                 pc.addTrack(track, stream);
             })
+            tracksReadyResolve();
         }).catch((err) => {
             console.log("error" + err)
         })
 
         ws.onmessage = async (event) => {
             const data: socketMessage = JSON.parse(event.data)
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    ws.send(JSON.stringify({
-                        type: "ice",
-                        data: {
-                            roomId: data.data.roomId,
-                            ice: event.candidate
-                        }
-                    }))
-                }
+            if (data?.data?.roomId) {
+                roomId = data.data.roomId;
             }
+
 
             if (data.type === "send-offer") {
                 setStatus(data.data.role)
+                await trackReady
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer)
                 ws.send(JSON.stringify({
@@ -67,6 +80,7 @@ export function Room() {
 
             } else if (data.type === "send-answer") {
                 await pc.setRemoteDescription(data.data.offer)
+                await trackReady
                 const answer = await pc.createAnswer()
                 await pc.setLocalDescription(answer)
                 ws.send(JSON.stringify({
@@ -81,6 +95,24 @@ export function Room() {
 
             } else if (data.type === "ice") {
                 await pc.addIceCandidate(data.data.ice)
+            }
+        }
+
+        return () => {
+            stream?.getTracks().forEach(track => track.stop());
+
+            pc.getSenders().forEach(sender => pc.removeTrack(sender));
+
+            pc.onicecandidate = null;
+            pc.ontrack = null;
+            pc.close();
+
+            ws.onmessage = null;
+            ws.onopen = null;
+            ws.onerror = null;
+
+            if (ws.readyState === ws.CONNECTING || ws.readyState === ws.OPEN) {
+                ws.close();
             }
         }
 
