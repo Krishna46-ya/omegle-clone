@@ -32,6 +32,11 @@ export class userManager {
 
     removeUser(socketId: WebSocket) {
         this.users = this.users.filter(user => user.socket !== socketId)
+        const partner = this.roomManager.removeRoom(socketId)
+        if (partner) {
+            this.users.push(partner)
+            this.clearQueue()
+        }
     }
 
     clearQueue() {
@@ -50,7 +55,7 @@ export class userManager {
     initHandler(socket: WebSocket) {
         socket.on("message", (data) => {
             const message: message = JSON.parse(data.toString());
-            console.log("data from user :" )
+            console.log("data from user :")
 
             if (message.type === "offer") {
                 this.roomManager.onOffer({ name: "random", socket }, message)
@@ -60,6 +65,14 @@ export class userManager {
             }
             if (message.type === "iceCandidate") {
                 this.roomManager.onIceCandidate({ name: "random", socket }, message)
+            }
+            if (message.type === "skip") {
+                const partner = this.roomManager.skipRoom(socket, message.data.roomId)
+                this.users.push({ name: "random", socket })
+                if(partner){
+                    this.users.unshift(partner)
+                }
+                this.clearQueue()
             }
         })
     }

@@ -1,4 +1,3 @@
-import { useSearchParams } from "react-router-dom"
 import type { socketMessage } from "../types/message";
 import { useEffect, useRef, useState } from "react";
 import { UserInterface } from "./UserInterface";
@@ -8,6 +7,7 @@ export function Room() {
     useEffect(() => {
 
         const ws = new WebSocket("ws://localhost:8080");
+        wsRef.current = ws
         const pc = new RTCPeerConnection();
         let tracksReadyResolve: () => void;
         const trackReady = new Promise<void>(res => {
@@ -27,20 +27,19 @@ export function Room() {
             })
         }
 
-        let roomId: null | string = null;
         pc.onicecandidate = (event) => {
             console.log(44);
-            if (!roomId) return;
+            if (!roomIdRef.current) return;
             if (event.candidate) {
                 ws.send(JSON.stringify({
                     type: "iceCandidate",
                     data: {
-                        roomId: roomId,
+                        roomId: roomIdRef.current,
                         ice: event.candidate
                     }
                 }))
             }
-            console.log(roomId)
+            console.log(roomIdRef.current)
         }
 
         navigator.mediaDevices.getUserMedia({
@@ -59,7 +58,7 @@ export function Room() {
         ws.onmessage = async (event) => {
             const data: socketMessage = JSON.parse(event.data)
             if (data?.data?.roomId) {
-                roomId = data.data.roomId;
+                roomIdRef.current = data.data.roomId;
             }
             console.log(data)
 
@@ -117,24 +116,31 @@ export function Room() {
             if (ws.readyState === ws.CONNECTING || ws.readyState === ws.OPEN) {
                 ws.close();
             }
+
+            wsRef.current = null;
+            roomIdRef.current = null;
         }
 
     }, [])
+
+    const skipPartner = () => {
+        if (!wsRef.current || !roomIdRef.current) return;
+        wsRef.current.send(JSON.stringify({
+            type: "skip",
+            data: {
+                roomId: roomIdRef.current
+            }
+        }))
+    }
+
     const [remoteStream, setRemoteStream] = useState<MediaStream>(new MediaStream())
     const [status, setStatus] = useState("")
-    const [searchparam] = useSearchParams()
     const [stream, setStream] = useState<MediaStream | null>(null)
-    const name = searchparam.get("name")
-    const remoteVidRef = useRef<HTMLVideoElement | null>(null)
-
-    useEffect(()=>{
-        if(!remoteVidRef.current)return
-        remoteVidRef.current.srcObject = remoteStream
-    },[remoteStream])
+    const wsRef = useRef<WebSocket | null>(null)
+    const roomIdRef = useRef<null | string>(null)
 
     return (<>
-        {name}:{status}
-        <UserInterface stream={stream}></UserInterface>
-        <video ref={remoteVidRef} muted autoPlay playsInline ></video>
+        status :{status}
+        <UserInterface skipPartner={skipPartner} remoteStream={remoteStream} stream={stream}></UserInterface>
     </>)
 }

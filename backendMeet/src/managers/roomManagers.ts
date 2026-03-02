@@ -1,3 +1,4 @@
+import type WebSocket from "ws";
 import type { message } from "../types/message.js";
 import type { user } from "./userManager.js";
 
@@ -33,6 +34,43 @@ export class roomManager {
             }
         }))
 
+    }
+
+    removeRoom(socket: WebSocket): null | user {
+        for (const [roomId, room] of this.rooms.entries()) {
+            if (room.user1.socket === socket) {
+                const partner = room.user2;
+                this.rooms.delete(roomId)
+                return partner;
+            }
+
+            if (room.user2.socket === socket) {
+                const partner = room.user1;
+                this.rooms.delete(roomId);
+                return partner;
+            }
+        }
+
+        return null
+    }
+
+    skipRoom(socket: WebSocket, roomId: string): user | null {
+        const room = this.rooms.get(roomId);
+        
+        if (!room) return null
+        if (room.user1.socket === socket) {
+            const partner = room.user2
+            this.rooms.delete(roomId);
+            return partner;
+        }
+
+        if (room.user2.socket === socket) {
+            const partner = room.user1;
+            this.rooms.delete(roomId);
+            return partner;
+        }
+
+        return null
     }
 
     onOffer(user1: user, messageData: message) {
