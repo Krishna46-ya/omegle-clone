@@ -50,7 +50,7 @@ export class userManager {
     initHandler(socket: WebSocket) {
         socket.on("message", (data) => {
             const message: message = JSON.parse(data.toString());
-            console.log("data from user :" + data)
+            console.log("data from user :" )
 
             if (message.type === "offer") {
                 this.roomManager.onOffer({ name: "random", socket }, message)

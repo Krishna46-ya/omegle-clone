@@ -70,10 +70,12 @@ export class roomManager {
 
     onIceCandidate(user: user, message: message) {
         const room = this.rooms.get(message.data.roomId)
+        console.log(message)
         if (!room || message.type !== 'iceCandidate') {
             return;
         }
-        if (room.user1 === user) {
+        if (room.user1.socket === user.socket) {
+            console.log("user2 ice sent")
             room.user2.socket.send(JSON.stringify({
                 type: "ice",
                 data: {
@@ -82,6 +84,7 @@ export class roomManager {
                 }
             }))
         } else {
+            console.log("user1 ice sent")
             room.user1.socket.send(JSON.stringify({
                 type: "ice",
                 data: {

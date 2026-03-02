@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom"
 import type { socketMessage } from "../types/message";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UserInterface } from "./UserInterface";
 
 export function Room() {
@@ -29,21 +29,23 @@ export function Room() {
 
         let roomId: null | string = null;
         pc.onicecandidate = (event) => {
+            console.log(44);
             if (!roomId) return;
             if (event.candidate) {
                 ws.send(JSON.stringify({
-                    type: "ice",
+                    type: "iceCandidate",
                     data: {
                         roomId: roomId,
                         ice: event.candidate
                     }
                 }))
             }
+            console.log(roomId)
         }
 
         navigator.mediaDevices.getUserMedia({
             video: true,
-            audio: true
+            audio: false
         }).then((stream) => {
             setStream(stream)
             stream.getTracks().forEach(track => {
@@ -59,6 +61,7 @@ export function Room() {
             if (data?.data?.roomId) {
                 roomId = data.data.roomId;
             }
+            console.log(data)
 
 
             if (data.type === "send-offer") {
@@ -122,9 +125,16 @@ export function Room() {
     const [searchparam] = useSearchParams()
     const [stream, setStream] = useState<MediaStream | null>(null)
     const name = searchparam.get("name")
+    const remoteVidRef = useRef<HTMLVideoElement | null>(null)
+
+    useEffect(()=>{
+        if(!remoteVidRef.current)return
+        remoteVidRef.current.srcObject = remoteStream
+    },[remoteStream])
 
     return (<>
         {name}:{status}
-        <UserInterface stream={stream} remoteStream={remoteStream}></UserInterface>
+        <UserInterface stream={stream}></UserInterface>
+        <video ref={remoteVidRef} muted autoPlay playsInline ></video>
     </>)
 }
