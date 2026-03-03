@@ -8,48 +8,16 @@ export function Room() {
 
         const ws = new WebSocket("ws://localhost:8080");
         wsRef.current = ws
-        const pc = new RTCPeerConnection();
         let tracksReadyResolve: () => void;
         const trackReady = new Promise<void>(res => {
             tracksReadyResolve = res;
         })
-
-
-        pc.ontrack = (event) => {
-            setRemoteStream(prev => {
-                if (prev.getTracks().some(t => t.id === event.track.id)) {
-                    return prev;
-                }
-
-                const newStream = new MediaStream(prev.getTracks())
-                newStream.addTrack(event.track)
-                return newStream;
-            })
-        }
-
-        pc.onicecandidate = (event) => {
-            console.log(44);
-            if (!roomIdRef.current) return;
-            if (event.candidate) {
-                ws.send(JSON.stringify({
-                    type: "iceCandidate",
-                    data: {
-                        roomId: roomIdRef.current,
-                        ice: event.candidate
-                    }
-                }))
-            }
-            console.log(roomIdRef.current)
-        }
 
         navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false
         }).then((stream) => {
             setStream(stream)
-            stream.getTracks().forEach(track => {
-                pc.addTrack(track, stream);
-            })
             tracksReadyResolve();
         }).catch((err) => {
             console.log("error" + err)
@@ -64,8 +32,14 @@ export function Room() {
 
 
             if (data.type === "send-offer") {
-                setStatus(data.data.role)
+
                 await trackReady
+                if (!pcRef.current) {
+                    createCallSession()
+                }
+                const pc = pcRef.current!
+
+                setStatus(data.data.role)
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer)
                 ws.send(JSON.stringify({
@@ -79,10 +53,14 @@ export function Room() {
             } else if (data.type === "wait-answer") {
                 setStatus(data.data.role)
 
-
             } else if (data.type === "send-answer") {
-                await pc.setRemoteDescription(data.data.offer)
                 await trackReady
+                if (!pcRef.current) {
+                    createCallSession();
+                }
+
+                const pc = pcRef.current!
+                await pc.setRemoteDescription(data.data.offer)
                 const answer = await pc.createAnswer()
                 await pc.setLocalDescription(answer)
                 ws.send(JSON.stringify({
@@ -93,21 +71,34 @@ export function Room() {
                     }
                 }))
             } else if (data.type === "take-answer") {
+                const pc = pcRef.current!
                 await pc.setRemoteDescription(data.data.answer);
 
             } else if (data.type === "ice") {
+                if (!pcRef.current) return
+                const pc = pcRef.current
                 await pc.addIceCandidate(data.data.ice)
+
+
+            } else if (data.type === "skipped") {
+                pcRef.current?.close()
+                pcRef.current = null
+                setRemoteStream(new MediaStream())
+                roomIdRef.current = null
+                
             }
         }
 
         return () => {
             stream?.getTracks().forEach(track => track.stop());
+            if (pcRef.current) {
+                const pc = pcRef.current
+                pc.getSenders().forEach(sender => pc.removeTrack(sender));
 
-            pc.getSenders().forEach(sender => pc.removeTrack(sender));
-
-            pc.onicecandidate = null;
-            pc.ontrack = null;
-            pc.close();
+                pc.onicecandidate = null;
+                pc.ontrack = null;
+                pc.close();
+            }
 
             ws.onmessage = null;
             ws.onopen = null;
@@ -125,6 +116,12 @@ export function Room() {
 
     const skipPartner = () => {
         if (!wsRef.current || !roomIdRef.current) return;
+
+        pcRef.current?.close()
+        pcRef.current = null
+        setRemoteStream(new MediaStream())
+        roomIdRef.current = null
+
         wsRef.current.send(JSON.stringify({
             type: "skip",
             data: {
@@ -133,11 +130,49 @@ export function Room() {
         }))
     }
 
+    function createCallSession() {
+        const pc = new RTCPeerConnection();
+        pcRef.current = pc
+
+        stream?.getTracks().forEach((track) => {
+            pc.addTrack(track, stream)
+        })
+
+        pc.ontrack = (event) => {
+            setRemoteStream(prev => {
+                if (prev.getTracks().some(t => t.id === event.track.id)) {
+                    return prev;
+                }
+
+                const newStream = new MediaStream(prev.getTracks())
+                newStream.addTrack(event.track)
+                return newStream;
+            })
+        }
+
+        pc.onicecandidate = (event) => {
+            console.log("Inside IceCandidate")
+            if (!roomIdRef.current || !wsRef.current) return;
+            if (event.candidate) {
+                wsRef.current.send(JSON.stringify({
+                    type: "iceCandidate",
+                    data: {
+                        roomId: roomIdRef.current,
+                        ice: event.candidate
+                    }
+                }))
+            }
+            console.log(roomIdRef.current)
+        }
+
+    }
+
     const [remoteStream, setRemoteStream] = useState<MediaStream>(new MediaStream())
     const [status, setStatus] = useState("")
     const [stream, setStream] = useState<MediaStream | null>(null)
     const wsRef = useRef<WebSocket | null>(null)
     const roomIdRef = useRef<null | string>(null)
+    const pcRef = useRef<RTCPeerConnection | null>(null);
 
     return (<>
         status :{status}

@@ -2,20 +2,20 @@
 export type message = {
     type: "offer",
     data: {
-        roomId : string,
-        offer : string
+        roomId: string,
+        offer: string
     }
 } | {
-    type : "answer",
-    data : {
-        roomId : string,
-        answer : string
+    type: "answer",
+    data: {
+        roomId: string,
+        answer: string
     }
 } | {
-    type : "iceCandidate",
-    data : {
-        roomId :string
-        ice :string
+    type: "iceCandidate",
+    data: {
+        roomId: string
+        ice: string
     }
 }
 
@@ -48,5 +48,10 @@ export type socketMessage = {
     data: {
         roomId: string,
         ice: RTCIceCandidateInit
+    }
+} | {
+    type: "skipped",
+    data: {
+        roomId: string
     }
 }
