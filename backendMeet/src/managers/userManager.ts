@@ -67,6 +67,7 @@ export class userManager {
                 this.roomManager.onIceCandidate({ name: "random", socket }, message)
             }
             if (message.type === "skip") {
+                console.log(message)
                 const partner = this.roomManager.skipRoom(socket, message.data.roomId)
                 this.users.push({ name: "random", socket })
                 if (partner) {

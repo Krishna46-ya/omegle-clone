@@ -17,7 +17,10 @@ export function Room() {
             video: true,
             audio: false
         }).then((stream) => {
+            console.log("steam setting in state")
+            streamRef.current = stream
             setStream(stream)
+            console.log(streamRef.current.getTracks())
             tracksReadyResolve();
         }).catch((err) => {
             console.log("error" + err)
@@ -71,7 +74,8 @@ export function Room() {
                     }
                 }))
             } else if (data.type === "take-answer") {
-                const pc = pcRef.current!
+                if(!pcRef.current)return;
+                const pc = pcRef.current
                 await pc.setRemoteDescription(data.data.answer);
 
             } else if (data.type === "ice") {
@@ -85,12 +89,12 @@ export function Room() {
                 pcRef.current = null
                 setRemoteStream(new MediaStream())
                 roomIdRef.current = null
-                
+
             }
         }
 
         return () => {
-            stream?.getTracks().forEach(track => track.stop());
+            streamRef.current?.getTracks().forEach(track => track.stop());
             if (pcRef.current) {
                 const pc = pcRef.current
                 pc.getSenders().forEach(sender => pc.removeTrack(sender));
@@ -120,7 +124,6 @@ export function Room() {
         pcRef.current?.close()
         pcRef.current = null
         setRemoteStream(new MediaStream())
-        roomIdRef.current = null
 
         wsRef.current.send(JSON.stringify({
             type: "skip",
@@ -128,14 +131,19 @@ export function Room() {
                 roomId: roomIdRef.current
             }
         }))
+
+        roomIdRef.current = null
     }
 
     function createCallSession() {
         const pc = new RTCPeerConnection();
         pcRef.current = pc
 
-        stream?.getTracks().forEach((track) => {
-            pc.addTrack(track, stream)
+        console.log("stream in create call session", streamRef.current)
+        streamRef.current?.getTracks().forEach((track) => {
+            console.log("setting tracks")
+            if (!streamRef.current) return
+            pc.addTrack(track, streamRef.current)
         })
 
         pc.ontrack = (event) => {
@@ -169,7 +177,8 @@ export function Room() {
 
     const [remoteStream, setRemoteStream] = useState<MediaStream>(new MediaStream())
     const [status, setStatus] = useState("")
-    const [stream, setStream] = useState<MediaStream | null>(null)
+    const streamRef = useRef<MediaStream | null>(null)
+    const [stream, setStream] = useState<null | MediaStream>(null);
     const wsRef = useRef<WebSocket | null>(null)
     const roomIdRef = useRef<null | string>(null)
     const pcRef = useRef<RTCPeerConnection | null>(null);
