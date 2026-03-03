@@ -56,7 +56,7 @@ export class roomManager {
                 partner.socket.send(JSON.stringify({
                     type: "skipped",
                     data: {
-                        roomID
+                        roomId
                     }
                 }))
                 return partner;
