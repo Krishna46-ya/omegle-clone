@@ -69,7 +69,7 @@ export class userManager {
             if (message.type === "skip") {
                 const partner = this.roomManager.skipRoom(socket, message.data.roomId)
                 this.users.push({ name: "random", socket })
-                if(partner){
+                if (partner) {
                     this.users.unshift(partner)
                 }
                 this.clearQueue()

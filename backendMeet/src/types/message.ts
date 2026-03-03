@@ -22,4 +22,9 @@ export type message = {
     data: {
         roomId: string
     }
+} | {
+    type: "skipped",
+    data: {
+        roomId: string
+    }
 }

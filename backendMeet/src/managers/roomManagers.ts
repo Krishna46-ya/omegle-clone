@@ -41,12 +41,24 @@ export class roomManager {
             if (room.user1.socket === socket) {
                 const partner = room.user2;
                 this.rooms.delete(roomId)
+                partner.socket.send(JSON.stringify({
+                    type: "skipped",
+                    data: {
+                        roomId
+                    }
+                }))
                 return partner;
             }
 
             if (room.user2.socket === socket) {
                 const partner = room.user1;
                 this.rooms.delete(roomId);
+                partner.socket.send(JSON.stringify({
+                    type: "skipped",
+                    data: {
+                        roomID
+                    }
+                }))
                 return partner;
             }
         }
@@ -56,17 +68,29 @@ export class roomManager {
 
     skipRoom(socket: WebSocket, roomId: string): user | null {
         const room = this.rooms.get(roomId);
-        
+
         if (!room) return null
         if (room.user1.socket === socket) {
             const partner = room.user2
             this.rooms.delete(roomId);
+            partner.socket.send(JSON.stringify({
+                type: "skipped",
+                data: {
+                    roomId
+                }
+            }))
             return partner;
         }
 
         if (room.user2.socket === socket) {
             const partner = room.user1;
             this.rooms.delete(roomId);
+            partner.socket.send(JSON.stringify({
+                type: "skipped",
+                data: {
+                    roomId
+                }
+            }))
             return partner;
         }
 
