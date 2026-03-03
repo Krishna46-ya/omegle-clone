@@ -15,7 +15,7 @@ export function Room() {
 
         navigator.mediaDevices.getUserMedia({
             video: true,
-            audio: false
+            audio: true
         }).then((stream) => {
             console.log("steam setting in state")
             streamRef.current = stream
@@ -176,7 +176,7 @@ export function Room() {
     }
 
     const [remoteStream, setRemoteStream] = useState<MediaStream>(new MediaStream())
-    const [status, setStatus] = useState("")
+    const [, setStatus] = useState("")
     const streamRef = useRef<MediaStream | null>(null)
     const [stream, setStream] = useState<null | MediaStream>(null);
     const wsRef = useRef<WebSocket | null>(null)
@@ -184,7 +184,6 @@ export function Room() {
     const pcRef = useRef<RTCPeerConnection | null>(null);
 
     return (<>
-        status :{status}
         <UserInterface skipPartner={skipPartner} remoteStream={remoteStream} stream={stream}></UserInterface>
     </>)
 }
