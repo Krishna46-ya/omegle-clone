@@ -47,7 +47,7 @@ you need **two terminal windows** to run the frontend and backend servers.
 
 ##### start backend
 ```
-cd cd backendmeet
+cd backendmeet
 npm run dev
 ```
 ##### start Frontend 
